@@ -4,7 +4,22 @@
     "name": "星巴克 Starbucks",
     "rate": 5,
     "cond": "需行動支付；每月上限 NT$200",
-    "tags": ["咖啡", "連鎖"]
+    "tags": ["咖啡", "連鎖"],
+    "offers": [
+      {
+        "issuer": "台新",
+        "card": "FlyGo",
+        "rate": 8,
+        "cond": "需綁定行動支付；每月上限 NT$200"
+      },
+      {
+        "issuer": "永豐",
+        "card": "幣倍",
+        "rate": 6,
+        "cond": "需活動登錄；上限 NT$150"
+      },
+      { "issuer": "聯邦", "card": "賴點卡", "rate": 3, "cond": "一般無腦刷" }
+    ]
   },
   {
     "id": "m_002",
@@ -67,6 +82,10 @@
     "name": "麥當勞 McDonald's",
     "rate": 4,
     "cond": "不限行動支付；部分門市不適用",
-    "tags": ["速食", "連鎖"]
+    "tags": ["速食", "連鎖"],
+    "offers": [
+      { "issuer": "國泰", "card": "CUBE", "rate": 5, "cond": "餐飲指定權益" },
+      { "issuer": "玉山", "card": "U Bear", "rate": 3, "cond": "一般餐飲" }
+    ]
   }
 ]

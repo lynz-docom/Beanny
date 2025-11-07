@@ -1,58 +1,21 @@
 // 方法 3：每次載入都強制讀取 merchants.json，不使用 localStorage
-// DEBUG 關閉：不顯示除錯浮窗
+// DEBUG 關閉
 (async function () {
   'use strict';
   const DEBUG = false;
 
-  // --- 小工具：除錯浮窗（關閉時不顯示） ---
   function showError(msg) {
-    if (!DEBUG) return;
-    let box = document.getElementById('debug-error-box');
-    if (!box) {
-      box = document.createElement('div');
-      box.id = 'debug-error-box';
-      box.style.cssText = `
-        position:fixed; right:14px; bottom:14px; max-width:420px; z-index:9999;
-        background:#fff; color:#c1121f; border:1px solid #f3c7c7; border-radius:12px;
-        box-shadow:0 8px 28px rgba(0,0,0,.12); font:13px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;
-        padding:12px 14px; white-space:pre-wrap; word-break:break-word;`;
-      const title = document.createElement('div');
-      title.textContent = '讀取診斷';
-      title.style.cssText = 'color:#111;font-weight:700;margin-bottom:6px';
-      box.appendChild(title);
-      document.body.appendChild(box);
-    }
-    const line = document.createElement('div');
-    line.textContent = String(msg);
-    box.appendChild(line);
+    if (!DEBUG) return; /* 省略除錯框實作 */
   }
 
-  // --- 讀取 JSON（含 timeout、cache bust） ---
   async function loadJSON() {
     const url = './merchants.json?v=' + Date.now();
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort('timeout'), 8000);
     try {
-      showError('Fetching ' + url);
-      const res = await fetch(url, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      clearTimeout(t);
-      showError('HTTP ' + res.status + ' ' + res.statusText);
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const ct = res.headers.get('content-type') || '';
-      showError('Content-Type: ' + ct);
-
       const text = await res.text();
-      try {
-        const json = JSON.parse(text.replace(/^\uFEFF/, ''));
-        if (!Array.isArray(json)) throw new Error('JSON 不是陣列');
-        return json;
-      } catch (parseErr) {
-        showError('JSON parse 失敗，原始長度: ' + text.length);
-        throw parseErr;
-      }
+      const json = JSON.parse(text.replace(/^\uFEFF/, ''));
+      return Array.isArray(json) ? json : [];
     } catch (err) {
       showError('讀取失敗：' + (err?.message || err));
       console.error('[merchants.json] load failed:', err);
@@ -62,54 +25,22 @@
 
   const state = { q: '', data: await loadJSON() };
 
-  // ---- DOM 綁定 ----
+  // ---- DOM ----
   const $ = (id) => document.getElementById(id);
-  const elQ = $('q');
-  const elList = $('list');
-  const elEmpty = $('empty');
-  const elStats = $('stats');
-
-  const addPanel = $('add-panel');
-  const btnAdd = $('btn-add');
-  const btnSave = $('btn-save');
-  const btnCancel = $('btn-cancel');
-
-  const btnExport = $('btn-export');
-  const importer = $('importer');
-
-  const fName = $('f-name');
-  const fRate = $('f-rate');
-  const fCond = $('f-cond');
-  const fTags = $('f-tags');
-
-  const required = [
-    elQ,
-    elList,
-    elEmpty,
-    elStats,
-    addPanel,
-    btnAdd,
-    btnSave,
-    btnCancel,
-    btnExport,
-    importer,
-    fName,
-    fRate,
-    fCond,
-    fTags,
-  ];
-  if (required.some((n) => !n)) {
-    showError('index.html 中某些必要的 id 缺失，請檢查');
-    console.error(
-      'Missing elements:',
-      required.map((x) => !!x)
-    );
-    return;
-  }
-
-  if (state.data.length === 0) {
-    showError('注意：目前沒有載入到任何商家資料。');
-  }
+  const elQ = $('q'),
+    elList = $('list'),
+    elEmpty = $('empty'),
+    elStats = $('stats');
+  const addPanel = $('add-panel'),
+    btnAdd = $('btn-add'),
+    btnSave = $('btn-save'),
+    btnCancel = $('btn-cancel');
+  const btnExport = $('btn-export'),
+    importer = $('importer');
+  const fName = $('f-name'),
+    fRate = $('f-rate'),
+    fCond = $('f-cond'),
+    fTags = $('f-tags');
 
   // ---- 事件 ----
   elQ.addEventListener(
@@ -119,7 +50,6 @@
       render();
     }, 80)
   );
-
   btnAdd.addEventListener('click', () => {
     addPanel.hidden = false;
     fName.focus();
@@ -129,7 +59,7 @@
     clearForm();
   });
 
-  // 加入清單（方法3：只存在記憶體）
+  // 加入商家（僅記憶體）
   btnSave.addEventListener('click', () => {
     const name = (fName.value || '').trim();
     const rate = Number(fRate.value);
@@ -141,7 +71,6 @@
       alert('請輸入有效的回饋%');
       return;
     }
-
     const cond = (fCond.value || '').trim();
     const tags = (fTags.value || '').trim()
       ? fTags.value
@@ -149,8 +78,7 @@
           .map((s) => s.trim())
           .filter(Boolean)
       : [];
-
-    state.data.push({ id: cid(), name, rate, cond, tags });
+    state.data.push({ id: cid(), name, rate, cond, tags, offers: [] });
     addPanel.hidden = true;
     clearForm();
     elQ.value = '';
@@ -158,26 +86,20 @@
     render();
   });
 
-  // 匯出目前畫面內的資料（供手動覆蓋 merchants.json）
+  // 匯出／匯入（保留 offers）
   btnExport.addEventListener('click', () => {
-    try {
-      const blob = new Blob([JSON.stringify(state.data, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'merchants.json';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      showError('匯出失敗：' + (err?.message || err));
-    }
+    const blob = new Blob([JSON.stringify(state.data, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'merchants.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   });
-
-  // 匯入 JSON（覆蓋記憶體資料）
   importer.addEventListener('change', (e) => {
     const file = e?.target?.files?.[0] || null;
     if (!file) return;
@@ -197,11 +119,12 @@
           rate: Number(x.rate) || 0,
           cond: x.cond || '',
           tags: Array.isArray(x.tags) ? x.tags : [],
+          offers: Array.isArray(x.offers) ? x.offers : [], // ← 保留 offers
         }));
         importer.value = '';
         render();
       } catch (err) {
-        showError('匯入失敗：' + (err?.message || err));
+        alert('匯入失敗：' + (err?.message || err));
       }
     };
     reader.readAsText(file);
@@ -223,7 +146,9 @@
       );
     }
 
+    // 依商家「主回饋」大→小
     items.sort((a, b) => (Number(b.rate) || 0) - (Number(a.rate) || 0));
+
     elStats.textContent = `共 ${state.data.length} 家商家 · 顯示 ${
       items.length
     } 筆${q ? `（關鍵字：${state.q}）` : ''}`;
@@ -239,6 +164,7 @@
       const card = document.createElement('article');
       card.className = 'card';
 
+      // 標頭
       const top = document.createElement('div');
       top.className = 'row';
       top.style.justifyContent = 'space-between';
@@ -246,20 +172,19 @@
       name.className = 'name';
       name.textContent = x.name || '';
 
-      // 回饋數字：>5% 顯示紅色
+      // 商家主回饋：>5% 紅色
       const badge = document.createElement('span');
       badge.className = 'badge';
       const color = Number(x.rate) > 5 ? '#d93535' : 'var(--blue)';
       badge.innerHTML = `<span class="rate" style="color:${color}">${fmtRate(
         x.rate
       )}</span> 回饋`;
-
       top.append(name, badge);
 
+      // 條件與標籤
       const cond = document.createElement('div');
       cond.className = 'cond';
       cond.textContent = x.cond || '—';
-
       const meta = document.createElement('div');
       meta.className = 'meta';
       (Array.isArray(x.tags) ? x.tags : []).forEach((t) => {
@@ -269,26 +194,91 @@
         meta.appendChild(tag);
       });
 
+      // 操作列：加上 .tools，並改用 btn-danger
       const tools = document.createElement('div');
-      tools.className = 'row';
-      const btnDel = tinyBtn('刪除', () => {
-        if (confirm(`刪除「${x.name}」?`)) {
-          state.data = state.data.filter((y) => y.id !== x.id);
-          render();
-        }
-      });
+      tools.className = 'row tools';
+      const btnDel = tinyBtn(
+        '✖',
+        () => {
+          if (confirm(`刪除「${x.name}」?`)) {
+            state.data = state.data.filter((y) => y.id !== x.id);
+            render();
+          }
+        },
+        'btn-danger'
+      );
       tools.append(btnDel);
 
       card.append(top, cond, meta, tools);
+
+      // 新增：信用卡優惠展開區
+      const offersWrap = document.createElement('div');
+      offersWrap.className = 'offers';
+      const offers = Array.isArray(x.offers) ? x.offers.slice() : [];
+      if (offers.length > 0) {
+        // 依回饋由高到低
+        offers.sort((a, b) => (Number(b.rate) || 0) - (Number(a.rate) || 0));
+
+        const toggle = document.createElement('div');
+        toggle.className = 'offer-toggle muted';
+        toggle.textContent = `查看卡片優惠（${offers.length}）`;
+        const ul = document.createElement('ul');
+        ul.className = 'offer-list';
+
+        toggle.addEventListener('click', () => {
+          ul.classList.toggle('open');
+          toggle.textContent = ul.classList.contains('open')
+            ? '收合卡片優惠'
+            : `查看卡片優惠（${offers.length}）`;
+        });
+
+        for (const o of offers) {
+          const li = document.createElement('li');
+          li.className = 'offer-item';
+
+          const left = document.createElement('div');
+          left.className = 'offer-left';
+          const cardName = document.createElement('div');
+          cardName.className = 'offer-card';
+          // 顯示格式：發卡行 + 卡名（若存在），否則顯示 o.card
+          const label =
+            o.issuer && o.card
+              ? `${o.issuer}・${o.card}`
+              : o.card || o.issuer || '未知卡別';
+          cardName.textContent = label;
+
+          const sub = document.createElement('div');
+          sub.className = 'offer-cond';
+          sub.textContent = o.cond || '—';
+
+          left.append(cardName, sub);
+
+          const right = document.createElement('div');
+          const rateSpan = document.createElement('span');
+          rateSpan.className =
+            'offer-rate' + (Number(o.rate) > 5 ? ' high' : '');
+          rateSpan.textContent = fmtRate(o.rate);
+
+          right.appendChild(rateSpan);
+
+          li.append(left, right);
+          ul.appendChild(li);
+        }
+
+        offersWrap.append(toggle, ul);
+      }
+
+      // 組裝卡片
+      card.append(top, cond, meta, tools);
+      if (offers.length > 0) card.append(offersWrap);
       elList.appendChild(card);
     }
   }
 
-  function tinyBtn(text, onClick) {
+  // ---- Utils ----
+  function tinyBtn(text, onClick, extraClass) {
     const b = document.createElement('button');
-    b.className = 'btn';
-    b.style.padding = '6px 10px';
-    b.style.fontSize = '12px';
+    b.className = 'btn' + (extraClass ? ' ' + extraClass : '');
     b.textContent = text;
     b.addEventListener('click', onClick);
     return b;

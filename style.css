@@ -129,7 +129,7 @@ input[type='number'] {
   color: var(--ink);
   padding: 10px 12px;
   font-size: 14px;
-  margin: 2px 0px;
+  margin: 2px 0px; /* 先前加的上下間距 */
 }
 input[type='text']:focus,
 input[type='number']:focus {
@@ -194,7 +194,7 @@ input[type='number']:focus {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 5px;
-}
+} /* 先前加的行距 */
 .empty {
   border: 1px dashed #dfe3ee;
   border-radius: 14px;
@@ -221,4 +221,85 @@ input[type='number']:focus {
   transform: translateY(-1px);
   box-shadow: 0 12px 28px rgba(10, 20, 40, 0.08),
     0 2px 6px rgba(10, 20, 40, 0.06);
+}
+
+/* 新增：卡片內「信用卡優惠」展開區樣式 */
+.offers {
+  border-top: 1px dashed #e5e9f2;
+  padding-top: 10px;
+  margin-top: 6px;
+}
+.offer-toggle {
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.offer-list {
+  margin: 8px 0 0 0;
+  padding: 0;
+  list-style: none;
+  display: none;
+}
+.offer-list.open {
+  display: block;
+}
+.offer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid #e9eef7;
+  background: #fbfdff;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.offer-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.offer-card {
+  font-weight: 600;
+}
+.offer-cond {
+  font-size: 12px;
+  color: #5b6a80;
+}
+.offer-rate {
+  font-weight: 800;
+  color: var(--blue);
+}
+.offer-rate.high {
+  color: #d93535;
+} /* >5% 顯示紅色 */
+
+/* 卡片操作列固定在卡片右下角 */
+.tools {
+  margin-top: auto; /* 推到卡片底部 */
+  justify-content: flex-end; /* 右對齊 */
+}
+
+/* 刪除按鈕：預設中性、hover 轉紅 */
+/* 刪除按鈕樣式：圓形 X 按鈕（置中對齊版） */
+.btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.8px solid #cacaca;
+  background: #ffffff;
+  color: #cacaca;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  padding: 0;
+}
+.btn-danger:hover {
+  background: #ff5858;
+  color: #ffffff;
+  border-color: #ff5858;
 }
