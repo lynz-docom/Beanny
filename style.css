@@ -129,6 +129,7 @@ input[type='number'] {
   color: var(--ink);
   padding: 10px 12px;
   font-size: 14px;
+  margin: 2px 0px;
 }
 input[type='text']:focus,
 input[type='number']:focus {
@@ -192,6 +193,7 @@ input[type='number']:focus {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  margin-top: 5px;
 }
 .empty {
   border: 1px dashed #dfe3ee;
