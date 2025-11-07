@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JSON Grid Editor – Minimal</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --muted: #94a3b8;
+        --accent: #22d3ee;
+        --err: #ef4444;
+        --ok: #10b981;
+        --border: #1f2937;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #0b1020;
+        color: #e5e7eb;
+        font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 10px;
+        height: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+      .panel {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #0b1222 0%, #0b0f1a 100%);
+      }
+      .head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        background: #0c1427;
+        border-radius: 12px 12px 0 0;
+      }
+      .head h2 {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.3px;
+        color: #cbd5e1;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .btn {
+        cursor: pointer;
+        border: 1px solid #22304a;
+        background: #0d182c;
+        color: #e5e7eb;
+        padding: 6px 10px;
+        border-radius: 8px;
+      }
+      .btn:hover {
+        border-color: #2c3d5f;
+      }
+      .btn.primary {
+        border-color: #1e334f;
+        background: #0f223f;
+        color: #e6fbff;
+      }
+      .btn.danger {
+        border-color: #4c1d1d;
+        background: #1b0f12;
+      }
+      .btn.success {
+        border-color: #1d4d41;
+        background: #0f1b17;
+      }
+      .body {
+        flex: 1;
+        min-height: 0;
+      }
+      textarea {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        border: 0;
+        outline: none;
+        resize: none;
+        background: transparent;
+        color: #e5e7eb;
+        padding: 12px;
+        font-size: 13px;
+      }
+      .status {
+        padding: 8px 12px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .status.error {
+        color: var(--err);
+      }
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        background: #0f1a2c;
+        border-bottom: 1px solid var(--border);
+        padding: 8px 10px;
+        font-weight: 600;
+        color: #cbd5e1;
+        text-align: left;
+      }
+      tbody td {
+        border-bottom: 1px solid var(--border);
+        padding: 6px 10px;
+        vertical-align: top;
+      }
+      tbody tr:hover {
+        background: #0e1628;
+      }
+      td[contenteditable='true'] {
+        outline: none;
+      }
+      .grid-wrap {
+        height: 100%;
+        overflow: auto;
+        padding: 8px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .pill {
+        padding: 3px 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: #9ca3af;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <!-- 左：JSON 原始碼 -->
+      <section class="panel" id="left">
+        <div class="head">
+          <h2>JSON</h2>
+          <span class="pill" id="rootType">—</span>
+          <div class="spacer"></div>
+          <button class="btn" id="fmtBtn">格式化</button>
+          <button class="btn primary" id="applyBtn">解析到表格</button>
+          <button class="btn success" id="downloadBtn">下載 JSON</button>
+        </div>
+        <div class="body">
+          <textarea id="jsonInput" spellcheck="false">
+[
+  {
+    "id": "m_001",
+    "name": "星巴克 Starbucks",
+    "rate": 5,
+    "cond": "需行動支付；每月上限 NT$200",
+    "tags": ["咖啡","連鎖"],
+    "offers": [
+      { "issuer":"台新", "card":"FlyGo", "rate":8, "cond":"需綁定行動支付；每月上限 NT$200" },
+      { "issuer":"永豐", "card":"幣倍", "rate":6, "cond":"需活動登錄；上限 NT$150" },
+      { "issuer":"聯邦", "card":"賴點卡", "rate":3, "cond":"一般無腦刷" }
+    ]
+  },
+  { "id":"m_002","name":"7-ELEVEN","rate":3,"cond":"超商類；門檻無；部分地區除外","tags":["超商","連鎖"] }
+]</textarea
+          >
+        </div>
+        <div class="status" id="leftStatus">
+          可直接編輯此區；按「解析到表格」同步到右側
+        </div>
+      </section>
+
+      <!-- 右：表格 -->
+      <section class="panel" id="right">
+        <div class="head">
+          <h2>表格</h2>
+          <div class="spacer"></div>
+          <div class="toolbar">
+            <button class="btn" id="addRowBtn">新增列</button>
+            <button class="btn danger" id="delRowBtn">刪除選取列</button>
+          </div>
+        </div>
+        <div class="body grid-wrap">
+          <table id="grid"></table>
+        </div>
+        <div class="status" id="rightStatus">
+          點擊儲存格即可編輯。支援自動型別：數字、true/false、null、JSON（物件/陣列）、文字。
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (() => {
+        // 狀態
+        let data = []; // 解析後的 JS 值（預期為 Array 或 Object）
+        let selectedRow = null; // 目前選取列 index（僅在 Array 模式使用）
+
+        // DOM
+        const jsonInput = document.getElementById('jsonInput');
+        const grid = document.getElementById('grid');
+        const leftStatus = document.getElementById('leftStatus');
+        const rightStatus = document.getElementById('rightStatus');
+        const rootTypeBadge = document.getElementById('rootType');
+
+        // 工具
+        const isObj = (v) =>
+          Object.prototype.toString.call(v) === '[object Object]';
+        const isArr = Array.isArray;
+
+        function safeParse(text) {
+          try {
+            return { ok: true, value: JSON.parse(text) };
+          } catch (e) {
+            return { ok: false, error: e.message };
+          }
+        }
+
+        function pretty(v) {
+          return JSON.stringify(v, (k, val) => val, 2);
+        }
+
+        // 將字串轉成合適型別
+        function coerceType(s) {
+          const t = s.trim();
+          if (t === '') return '';
+          if (t === 'true') return true;
+          if (t === 'false') return false;
+          if (t === 'null') return null;
+          if (!isNaN(t) && /^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+          if (
+            (t.startsWith('{') && t.endsWith('}')) ||
+            (t.startsWith('[') && t.endsWith(']'))
+          ) {
+            const p = safeParse(t);
+            if (p.ok) return p.value;
+          }
+          // 預設字串，保留原樣
+          return s;
+        }
+
+        // 從資料推算欄位
+        function inferColumns(arr) {
+          const cols = new Set();
+          arr.forEach((row) => {
+            if (isObj(row)) Object.keys(row).forEach((k) => cols.add(k));
+            else cols.add('value'); // 標量列
+          });
+          return [...cols];
+        }
+
+        // 渲染表格（支援 root 為 Array 或 Object）
+        function renderGrid() {
+          grid.innerHTML = '';
+          const rootIsArray = isArr(data);
+          rootTypeBadge.textContent = rootIsArray
+            ? 'root: Array'
+            : isObj(data)
+            ? 'root: Object'
+            : 'root: Scalar';
+
+          let rows = [];
+          if (rootIsArray) rows = data;
+          else if (isObj(data)) rows = [data];
+          else rows = [{ value: data }];
+
+          const cols = inferColumns(rows);
+
+          // 表頭
+          const thead = document.createElement('thead');
+          const trh = document.createElement('tr');
+          trh.appendChild(th('▣')); // 選取欄
+          cols.forEach((c) => trh.appendChild(th(c)));
+          thead.appendChild(trh);
+          grid.appendChild(thead);
+
+          // 本體
+          const tbody = document.createElement('tbody');
+          rows.forEach((row, rIdx) => {
+            const tr = document.createElement('tr');
+
+            // 選取單元
+            const sel = document.createElement('td');
+            sel.style.width = '36px';
+            sel.innerHTML = `<input type="radio" name="rowpick" ${
+              selectedRow === rIdx ? 'checked' : ''
+            }/>`;
+            sel.addEventListener('change', () => (selectedRow = rIdx));
+            tr.appendChild(sel);
+
+            // 資料欄
+            cols.forEach((col) => {
+              const td = document.createElement('td');
+              td.contentEditable = 'true';
+              let raw = isObj(row)
+                ? row[col]
+                : col === 'value'
+                ? row
+                : undefined;
+              td.textContent =
+                isObj(raw) || isArr(raw) ? JSON.stringify(raw) : raw ?? '';
+              td.addEventListener('input', () => {
+                const newVal = coerceType(td.textContent);
+                if (rootIsArray) {
+                  if (isObj(data[rIdx])) {
+                    data[rIdx][col] = newVal;
+                  } else {
+                    // 這列是標量，任何欄都寫回 value
+                    data[rIdx] = newVal;
+                  }
+                } else if (isObj(data)) {
+                  data[col] = newVal; // 單列物件
+                } else {
+                  data = newVal; // root 為標量
+                }
+                jsonInput.value = pretty(data);
+                leftStatus.textContent = '已由表格更新 JSON。';
+                leftStatus.classList.remove('error');
+              });
+              tr.appendChild(td);
+            });
+
+            tbody.appendChild(tr);
+          });
+
+          grid.appendChild(tbody);
+          rightStatus.textContent = rootIsArray
+            ? '陣列模式：可新增/刪除列；欄位會隨輸入自動產生。'
+            : '物件/標量模式：僅 1 列顯示。';
+        }
+
+        function th(label) {
+          const th = document.createElement('th');
+          th.textContent = label;
+          return th;
+        }
+
+        // 事件：解析左側 JSON -> 右側表格
+        document.getElementById('applyBtn').addEventListener('click', () => {
+          const parsed = safeParse(jsonInput.value);
+          if (!parsed.ok) {
+            leftStatus.textContent = 'JSON 解析錯誤：' + parsed.error;
+            leftStatus.classList.add('error');
+            return;
+          }
+          data = parsed.value;
+          selectedRow = null;
+          leftStatus.textContent = '已解析到表格。';
+          leftStatus.classList.remove('error');
+          renderGrid();
+        });
+
+        // 事件：格式化 JSON
+        document.getElementById('fmtBtn').addEventListener('click', () => {
+          const parsed = safeParse(jsonInput.value);
+          if (!parsed.ok) {
+            leftStatus.textContent = '無法格式化：' + parsed.error;
+            leftStatus.classList.add('error');
+            return;
+          }
+          jsonInput.value = pretty(parsed.value);
+          leftStatus.textContent = '已格式化。';
+          leftStatus.classList.remove('error');
+        });
+
+        // 事件：下載 JSON
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+          const blob = new Blob([jsonInput.value], {
+            type: 'application/json;charset=utf-8',
+          });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `data-${new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[:T]/g, '-')}.json`;
+          document.body.appendChild(a);
+          a.click();
+          URL.revokeObjectURL(a.href);
+          a.remove();
+        });
+
+        // 新增列（僅在 root 為陣列時有意義）
+        document.getElementById('addRowBtn').addEventListener('click', () => {
+          if (!isArr(data)) {
+            rightStatus.textContent =
+              '目前非陣列根節點，無法新增列。請將 root 設為陣列。';
+            return;
+          }
+          // 以目前欄位建立空物件
+          const cols = inferColumns(data);
+          const row = {};
+          cols.forEach((c) => {
+            if (c !== 'value') row[c] = '';
+          });
+          // 若全是標量，推一個空字串
+          data.push(Object.keys(row).length ? row : '');
+          jsonInput.value = pretty(data);
+          renderGrid();
+        });
+
+        // 刪除選取列
+        document.getElementById('delRowBtn').addEventListener('click', () => {
+          if (!isArr(data)) {
+            rightStatus.textContent = '目前非陣列根節點，無法刪除列。';
+            return;
+          }
+          if (selectedRow == null) {
+            rightStatus.textContent = '請先選取要刪除的列（左側圓鈕）。';
+            return;
+          }
+          data.splice(selectedRow, 1);
+          selectedRow = null;
+          jsonInput.value = pretty(data);
+          renderGrid();
+        });
+
+        // 初始渲染
+        (function init() {
+          const p = safeParse(jsonInput.value);
+          data = p.ok ? p.value : [];
+          renderGrid();
+        })();
+      })();
+    </script>
+  </body>
+</html>
